@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="it" class="dark h-full bg-[#09090b] text-zinc-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tattoogram — Il Social Network dei Tatuatori & Fan</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            roseAccent: '#e11d48',
+            roseHover: '#be123c',
+            darkBg: '#09090b',
+            cardBg: '#18181b',
+            borderDark: '#27272a'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 9999px;
+    }
+    .like-heart-anim {
+      animation: popHeart 0.6s ease-in-out forwards;
+    }
+    @keyframes popHeart {
+      0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="h-full bg-[#09090b] text-zinc-100 flex flex-col justify-between selection:bg-rose-500 selection:text-white">
+
+  <header class="sticky top-0 z-40 bg-[#09090b]/90 backdrop-blur-md border-b border-zinc-800 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      <!-- Logo -->
+      <div onclick="switchTab('feed')" class="cursor-pointer flex items-center gap-2 group shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-lg shadow-rose-950/50 group-hover:scale-105 transition-transform">
+          <i class="fa-solid fa-pen-nib text-lg"></i>
+        </div>
+        <div class="hidden md:block">
+          <h1 class="text-xl font-black tracking-wider text-white flex items-center gap-1.5">
+            TATTOOGRAM <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">PRO</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Header Search Input -->
+      <div class="flex-1 max-w-xs sm:max-w-sm relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+        <input type="text" id="headerSearchInput" oninput="handleHeaderSearch()" placeholder="Cerca utenti, stili, @username..." class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500 transition">
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <button onclick="openCloudConfigModal()" class="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 hover:border-zinc-600 transition flex items-center gap-1.5 text-zinc-300">
+          <i class="fa-solid fa-cloud text-rose-400" id="syncStatusIcon"></i>
+          <span class="hidden sm:inline" id="syncStatusText">Supabase Cloud</span>
+        </button>
+
+        <button onclick="openNewPostModal()" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus text-sm"></i>
+          <span class="hidden sm:inline">Nuovo Tatuaggio</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-4xl w-full mx-auto px-2 sm:px-4 py-4 mb-16 sm:mb-20">
+
+    <!-- TAB 1: HOME FEED -->
+    <section id="tab-feed" class="space-y-6">
+      
+      <!-- Guest User Banner (If Guest) -->
+      <div id="guestNoticeBanner" class="p-3.5 bg-gradient-to-r from-rose-950/40 via-zinc-900 to-zinc-900 border border-rose-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-user-astronaut text-lg"></i>
+          </div>
+          <div>
+            <div class="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              Stai navigando come <span id="guestNoticeUsername" class="text-rose-400 font-bold">@Ospite</span>
+            </div>
+            <p class="text-xs text-zinc-400">Puoi pubblicare liberamente tatuaggi e bozzetti come ospite!</p>
+          </div>
+        </div>
+        <button onclick="openClaimProfileModal()" class="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition shadow-md">
+          <i class="fa-solid fa-id-card mr-1"></i> Crea Profilo
+        </button>
+      </div>
+
+      <!-- Featured Tattoo Artists & Apprentices Stories -->
+      <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <span class="text-xs font-bold tracking-wider text-zinc-400 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-fire text-rose-500"></i> Tatuatori In Evidenza
+          </span>
+          <span class="text-xs text-zinc-500">Scorri &rarr;</span>
+        </div>
+        <div id="storiesContainer" class="flex items-center gap-4 overflow-x-auto custom-scrollbar pb-1">
+          <!-- Stories inserted via JS -->
+        </div>
+      </div>
+
+      <!-- Feed Filter Pills -->
+      <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar py-1">
+        <button onclick="filterFeed('all')" class="feed-filter-btn px-3.5 py-1.5 text-xs font-medium rounded-full bg-rose-600 text-white transition whitespace-nowrap">Tutti i post</button>
+        <button onclick="filterFeed('Pro Tattoo Artist')" class="feed-filter-btn px-3.5 py-1.5 text-xs font-medium rounded-full bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition whitespace-nowrap"><i class="fa-solid fa-certificate text-amber-400 mr-1"></i> Solo Tatuatori PRO</button>
+        <button onclick="filterFeed('Apprentice')" class="feed-filter-btn px-3.5 py-1.5 text-xs font-medium rounded-full bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition whitespace-nowrap"><i class="fa-solid fa-seedling text-emerald-400 mr-1"></i> Apprendisti</button>
+        <button onclick="filterFeed('Bozzetto / Flash')" class="feed-filter-btn px-3.5 py-1.5 text-xs font-medium rounded-full bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition whitespace-nowrap"><i class="fa-solid fa-compass-drafting text-rose-400 mr-1"></i> Flash & Bozzetti</button>
+      </div>
+
+      <!-- Posts List Feed -->
+      <div id="feedPostsContainer" class="space-y-6">
+        <!-- Posts will be generated dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 2: SEARCH & EXPLORE USERNAME / PROFILES -->
+    <section id="tab-search" class="hidden space-y-6">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-md">
+        <h2 class="text-xl font-bold text-zinc-100 mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-rose-500"></i> Cerca Tatuatori & Utenti
+        </h2>
+        <p class="text-xs text-zinc-400 mb-4">Cerca per nome utente (es: <span class="text-rose-400">@ink_master</span>), nome e cognome, stile di tatuaggio o categoria.</p>
+        
+        <!-- Live Search Input -->
+        <div class="relative mb-4">
+          <i class="fa-solid fa-at absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 text-base"></i>
+          <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Cerca username (@marco_ink), stile (Traditional, Fine Line) o tag..." class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-xl pl-11 pr-10 py-3 text-sm focus:outline-none focus:border-rose-500 transition">
+          <button onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm hidden" id="clearSearchBtn">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Search Filters Buttons -->
+        <div class="flex items-center gap-2 flex-wrap text-xs text-zinc-400">
+          <span class="font-medium text-zinc-500">Filtri rapidi:</span>
+          <button onclick="setSearchFilter('all')" class="search-category-btn px-2.5 py-1 rounded-lg bg-rose-600 text-white transition">Tutti</button>
+          <button onclick="setSearchFilter('Pro Tattoo Artist')" class="search-category-btn px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition">Tatuatori PRO</button>
+          <button onclick="setSearchFilter('Apprentice')" class="search-category-btn px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition">Apprendisti</button>
+          <button onclick="setSearchFilter('Studio')" class="search-category-btn px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition">Studio Tatuaggi</button>
+        </div>
+      </div>
+
+      <!-- Search Results Header -->
+      <div class="flex items-center justify-between px-1">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400" id="searchResultsCount">Profili Tatuatori Trovati</h3>
+        <span class="text-xs text-rose-400 font-semibold cursor-pointer hover:underline" onclick="clearSearch()">Resetta ricerca</span>
+      </div>
+
+      <!-- Profiles Grid Results -->
+      <div id="searchResultsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Search result profile cards rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 3: SAVED POSTS -->
+    <section id="tab-saved" class="hidden space-y-6">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 sm:p-6 text-center">
+        <div class="w-12 h-12 bg-rose-500/20 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
+          <i class="fa-solid fa-bookmark"></i>
+        </div>
+        <h2 class="text-lg font-bold text-zinc-100">I tuoi Tatuaggi Salvati</h2>
+        <p class="text-xs text-zinc-400 max-w-sm mx-auto">Collezione di bozzetti, flash e tatuaggi salvati dai profili degli artisti per tua ispirazione.</p>
+      </div>
+
+      <div id="savedPostsContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <!-- Saved posts dynamically inserted here -->
+      </div>
+    </section>
+
+    <!-- TAB 4: MY PROFILE / VIEW PROFILE -->
+    <section id="tab-profile" class="hidden space-y-6">
+      <!-- Profile Header Card -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg relative">
+        <!-- Banner image -->
+        <div class="h-32 sm:h-44 bg-gradient-to-r from-rose-950 via-zinc-900 to-black relative overflow-hidden">
+          <img id="profileBannerImg" src="https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80" class="w-full h-full object-cover opacity-40" alt="Banner">
+          <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent"></div>
+        </div>
+
+        <!-- Main User Info -->
+        <div class="px-4 sm:px-6 pb-6 relative -mt-14 sm:-mt-16">
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+            <!-- Avatar -->
+            <div class="relative">
+              <img id="profileAvatarImg" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-4 border-zinc-900 object-cover shadow-xl bg-zinc-800" alt="Avatar">
+              <span id="profileRoleBadgeIcon" class="absolute -bottom-1 -right-1 bg-rose-600 text-white text-xs px-2 py-0.5 rounded-md shadow-md border border-zinc-900 font-bold">PRO</span>
+            </div>
+
+            <!-- Profile Action Buttons -->
+            <div class="flex items-center gap-2">
+              <button id="editProfileBtn" onclick="openEditProfileModal()" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-pen"></i> Modifica Profilo
+              </button>
+              <button id="convertProfileBtn" onclick="openClaimProfileModal()" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-1.5">
+                <i class="fa-solid fa-user-plus"></i> Registra Handle
+              </button>
+            </div>
+          </div>
+
+          <!-- User Names & Role -->
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 id="profileDisplayName" class="text-xl sm:text-2xl font-black text-white">Elena Rostova</h2>
+              <span id="profileRoleBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold">Tatuatrice PRO</span>
+              <span id="profileAgendaBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Agenda Aperta
+              </span>
+            </div>
+            <p id="profileHandle" class="text-sm font-semibold text-rose-400">@elena_dark_tattoo</p>
+            <p id="profileBio" class="text-xs sm:text-sm text-zinc-300 max-w-2xl pt-1">Specializzata in Blackwork, Fine Line & Microrealismo. Tattoo Artist presso Milano Ink Studio. Per appuntamenti scrivi su WhatsApp!</p>
+          </div>
+
+          <!-- Extra details (Location, Styles, Contact) -->
+          <div class="mt-4 pt-4 border-t border-zinc-800/80 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-location-dot text-rose-500"></i>
+              <span id="profileCity">Milano, Italia</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-palette text-amber-500"></i>
+              <span id="profileStyles">Blackwork, Fine Line, Irezumi</span>
+            </div>
+            <div id="profileContactLinkContainer" class="flex items-center gap-3 ml-auto">
+              <!-- Contact buttons dynamically added -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Tabs -->
+      <div class="flex items-center border-b border-zinc-800 text-xs font-semibold">
+        <button onclick="switchProfileSubTab('posts')" id="pSubTab-posts" class="px-4 py-3 border-b-2 border-rose-500 text-rose-400 flex items-center gap-2">
+          <i class="fa-solid fa-grid-2"></i> I Miei Tatuaggi (<span id="userPostsCount">0</span>)
+        </button>
+        <button onclick="switchProfileSubTab('flash')" id="pSubTab-flash" class="px-4 py-3 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 flex items-center gap-2">
+          <i class="fa-solid fa-compass-drafting"></i> Bozzetti & Flash
+        </button>
+      </div>
+
+      <!-- User Posts Grid -->
+      <div id="userProfilePostsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <!-- User items rendered here -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR (INSTAGRAM STYLE) -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#09090b]/95 backdrop-blur-lg border-t border-zinc-800 px-4 py-2">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <button onclick="switchTab('feed')" id="nav-feed" class="flex flex-col items-center gap-1 text-rose-500 font-semibold text-xs transition">
+        <i class="fa-solid fa-house text-lg"></i>
+        <span>Feed</span>
+      </button>
+
+      <button onclick="switchTab('search')" id="nav-search" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-200 text-xs transition">
+        <i class="fa-solid fa-magnifying-glass text-lg"></i>
+        <span>Esplora</span>
+      </button>
+
+      <button onclick="openNewPostModal()" class="w-10 h-10 -mt-5 rounded-full bg-gradient-to-tr from-rose-600 to-rose-400 text-white flex items-center justify-center shadow-lg shadow-rose-950/80 hover:scale-105 transition">
+        <i class="fa-solid fa-plus text-base"></i>
+      </button>
+
+      <button onclick="switchTab('saved')" id="nav-saved" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-200 text-xs transition">
+        <i class="fa-solid fa-bookmark text-lg"></i>
+        <span>Salvati</span>
+      </button>
+
+      <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-200 text-xs transition">
+        <i class="fa-solid fa-circle-user text-lg"></i>
+        <span>Profilo</span>
+      </button>
+    </div>
+  </nav>
+
+  
+  <!-- MODAL 1: NEW TATTOO POST -->
+  <div id="newPostModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <button onclick="closeNewPostModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-camera-retro text-rose-500"></i> Pubblica Nuovo Tatuaggio
+      </h2>
+
+      <form id="newPostForm" onsubmit="handleCreatePost(event)" class="space-y-4">
+        <!-- User identity note -->
+        <div class="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-between text-xs text-zinc-300">
+          <span>Autore Post: <strong id="postAuthorDisplay" class="text-rose-400">@Ospite</strong></span>
+          <button type="button" onclick="openClaimProfileModal()" class="text-rose-500 hover:underline">Cambia / Registra</button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">URL Immagine o Carica File</label>
+          <input type="text" id="postImageUrl" placeholder="Incolla URL della foto del tatuaggio..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 mb-2">
+          <div class="text-center text-xs text-zinc-500 my-1">oppure seleziona da file:</div>
+          <input type="file" id="postImageFile" accept="image/*" onchange="handleFileSelect(event)" class="block w-full text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-300 hover:file:bg-zinc-700">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Didascalia / Storia del Tatuaggio</label>
+          <textarea id="postCaption" rows="3" required placeholder="Racconta la storia di questo tatuaggio, aghi usati, significato..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-rose-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1">Stile Tatuaggio</label>
+            <select id="postStyle" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-rose-500">
+              <option value="Blackwork">Blackwork</option>
+              <option value="Traditional">Traditional / Old School</option>
+              <option value="Fine Line">Fine Line / Microrealismo</option>
+              <option value="Realism">Realismo</option>
+              <option value="Irezumi / Giapponese">Irezumi / Giapponese</option>
+              <option value="Neo-Traditional">Neo-Traditional</option>
+              <option value="Watercolor">Watercolor / Acquerello</option>
+              <option value="Geometric">Geometrico / Dotwork</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1">Tipo di Lavoro</label>
+            <select id="postCategory" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-rose-500">
+              <option value="Tatuaggio Eseguito">Tatuaggio Eseguito</option>
+              <option value="Bozzetto / Flash">Bozzetto / Flash Disponibile</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Città / Studio</label>
+          <input type="text" id="postLocation" placeholder="Es. Milano Ink Studio, Milano" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition">
+          <i class="fa-solid fa-paper-plane mr-1"></i> Pubblica Tatuaggio
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CLAIM / CONVERT PROFILE -->
+  <div id="claimProfileModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative">
+      <button onclick="closeClaimProfileModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+        <i class="fa-solid fa-user-check text-rose-500"></i> Scegli / Registra il tuo Username
+      </h2>
+      <p class="text-xs text-zinc-400 mb-4">I tuoi post precedentemente creati verranno associati a questo profilo unico!</p>
+
+      <form onsubmit="handleClaimProfile(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Username (@handle)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">@</span>
+            <input type="text" id="claimHandle" required placeholder="marco_ink" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Nome e Cognome / Nome Studio</label>
+          <input type="text" id="claimDisplayName" required placeholder="Marco Rossi" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Ruolo / Categoria</label>
+          <select id="claimRole" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-rose-500">
+            <option value="Pro Tattoo Artist">Tatuatore Professionista (PRO)</option>
+            <option value="Apprentice">Apprendista Tatuatore</option>
+            <option value="Tattoo Studio">Studio di Tatuaggi</option>
+            <option value="Collector">Appassionato / Collezionista</option>
+          </select>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition">
+          Salva e Imposta Profilo
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: EDIT PROFILE -->
+  <div id="editProfileModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <button onclick="closeEditProfileModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-user-gear text-rose-500"></i> Personalizza Profilo
+      </h2>
+
+      <form onsubmit="handleSaveProfileEdit(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Nome Visualizzato</label>
+          <input type="text" id="editName" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Bio / Descrizione</label>
+          <textarea id="editBio" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-rose-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1">URL Avatar / Foto</label>
+            <input type="text" id="editAvatar" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1">URL Banner Copertina</label>
+            <input type="text" id="editBanner" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Città / Studio principale</label>
+          <input type="text" id="editCity" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Stili Preferiti (separati da virgola)</label>
+          <input type="text" id="editStyles" placeholder="Blackwork, Fine Line, Realismo" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div class="flex items-center justify-between p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div>
+            <div class="text-xs font-bold text-white">Stato Agenda Appuntamenti</div>
+            <div class="text-[10px] text-zinc-400">Mostra se stai accettando nuovi clienti</div>
+          </div>
+          <input type="checkbox" id="editAgendaOpen" class="w-4 h-4 accent-rose-600 rounded cursor-pointer">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Link Diretto WhatsApp / Instagram</label>
+          <input type="text" id="editContactLink" placeholder="https://wa.me/393330000000" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition">
+          Aggiorna Profilo
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 4: SUPABASE CLOUD CONFIGURATION -->
+  <div id="cloudConfigModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative">
+      <button onclick="closeCloudConfigModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+        <i class="fa-solid fa-cloud text-rose-500"></i> Connetti Supabase Database
+      </h2>
+      <p class="text-xs text-zinc-400 mb-4">Incolla i tuoi parametri di Supabase per salvare foto e profili in cloud con tutti gli utenti!</p>
+
+      <form onsubmit="handleSaveCloudConfig(event)" class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-zinc-300 mb-0.5">Project URL</label>
+          <input type="text" id="supaUrl" value="https://rlkemivoajyqbexgvtop.supabase.co" placeholder="https://rlkemivoajyqbexgvtop.supabase.co" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-zinc-300 mb-0.5">Anon Public Key</label>
+          <input type="text" id="supaAnonKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" onclick="clearCloudConfig()" class="text-xs text-rose-400 hover:underline">
+            Usa solo Memoria Locale
+          </button>
+          <button type="submit" class="py-2 px-5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition">
+            Salva & Sincronizza
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: FULL-SCREEN LIGHTBOX & COMMENTS -->
+  <div id="lightboxModal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col md:flex-row">
+    <button onclick="closeLightbox()" class="absolute top-4 right-4 z-50 text-white/80 hover:text-white text-2xl w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="flex-1 flex items-center justify-center p-2 sm:p-6 bg-black">
+      <img id="lightboxImage" src="" class="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl" alt="Tattoo Detail">
+    </div>
+    <div class="w-full md:w-96 bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-800 p-4 sm:p-5 flex flex-col justify-between h-auto md:h-full">
+      <div>
+        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-800">
+          <img id="lightboxAuthorAvatar" src="" class="w-10 h-10 rounded-full object-cover border border-rose-500/40" alt="Author">
+          <div>
+            <div id="lightboxAuthorName" class="text-sm font-bold text-white">@username</div>
+            <div id="lightboxAuthorStyle" class="text-xs text-rose-400">Style</div>
+          </div>
+        </div>
+        <p id="lightboxCaption" class="text-xs text-zinc-300 mb-4 leading-relaxed"></p>
+
+        <!-- Comments Section -->
+        <div class="space-y-2">
+          <h4 class="text-xs font-bold uppercase text-zinc-400">Commenti</h4>
+          <div id="lightboxComments" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar text-xs">
+            <!-- Comments inserted here -->
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-zinc-800 mt-4">
+        <form onsubmit="handleAddComment(event)" class="flex items-center gap-2">
+          <input type="text" id="lightboxCommentInput" placeholder="Aggiungi un commento..." required class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+          <button type="submit" class="px-3 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-500">Invia</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    const DEFAULT_SUPABASE_URL = 'https://rlkemivoajyqbexgvtop.supabase.co';
+
+    function initSupabase() {
+      const cfg = JSON.parse(localStorage.getItem('tg_supabase_cfg') || '{}');
+      const url = cfg.url || DEFAULT_SUPABASE_URL;
+      const key = cfg.anonKey;
+
+      if (url && key && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(url, key);
+          document.getElementById('syncStatusIcon').className = "fa-solid fa-cloud-check text-emerald-400";
+          document.getElementById('syncStatusText').innerText = "Supabase Attivo";
+          return true;
+        } catch(e) {
+          console.error("Configurazione Supabase non valida", e);
+        }
+      }
+      document.getElementById('syncStatusIcon').className = "fa-solid fa-cloud text-rose-400";
+      document.getElementById('syncStatusText').innerText = "Supabase Cloud";
+      return false;
+    }
+
+    // MOCK SEED DATA FOR FIRST TIME VISITORS
+    const MOCK_PROFILES = [
+      {
+        handle: 'elena_dark_tattoo',
+        displayName: 'Elena Rostova',
+        role: 'Pro Tattoo Artist',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        banner: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+        bio: 'Specializzata in Blackwork, Fine Line & Microrealismo. Tattoo Artist presso Milano Ink Studio.',
+        city: 'Milano, Italia',
+        styles: 'Blackwork, Fine Line, Realismo',
+        agendaOpen: true,
+        whatsapp: 'https://wa.me/393330000000'
+      },
+      {
+        handle: 'marco_trad',
+        displayName: 'Marco "Old School" Rossi',
+        role: 'Pro Tattoo Artist',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+        banner: 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+        bio: 'Passione pura per il Traditional Americano. Ancore, pantere e rose senza tempo.',
+        city: 'Roma, Italia',
+        styles: 'Traditional, Neo-Traditional',
+        agendaOpen: true,
+        whatsapp: 'https://wa.me/393331111111'
+      },
+      {
+        handle: 'sophie_ink_apprentice',
+        displayName: 'Sophie Laurent',
+        role: 'Apprentice',
+        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=250&q=80',
+        banner: 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
+        bio: 'Apprendista tatuatrice da 1 anno. Studio ed eseguo flash art a prezzi promozionali!',
+        city: 'Torino, Italia',
+        styles: 'Watercolor, Geometrico, Flash',
+        agendaOpen: true,
+        whatsapp: 'https://wa.me/393332222222'
+      }
+    ];
+
+    const MOCK_POSTS = [
+      {
+        id: 'post-1',
+        authorHandle: 'elena_dark_tattoo',
+        authorName: 'Elena Rostova',
+        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        authorRole: 'Pro Tattoo Artist',
+        imageUrl: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=800&q=80',
+        caption: 'Nuovo progetto Blackwork completato! 5 ore di seduta per questa composizione floreale e teschio. Cosa ne pensate?',
+        style: 'Blackwork',
+        category: 'Tatuaggio Eseguito',
+        location: 'Milano Ink Studio',
+        likes: 142,
+        likedByMe: false,
+        comments: [
+          { author: '@marco_trad', text: 'Sfumature pazzesche Elena! Complimenti.' },
+          { author: '@sophie_ink_apprentice', text: 'Ispirazione pura per i miei lavori!' }
+        ],
+        timestamp: '2 ore fa'
+      },
+      {
+        id: 'post-2',
+        authorHandle: 'marco_trad',
+        authorName: 'Marco "Old School" Rossi',
+        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+        authorRole: 'Pro Tattoo Artist',
+        imageUrl: 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=800&q=80',
+        caption: 'Aquila Traditional in pieno petto. Linee spesse da 14RL e colori solidi che durano una vita intera.',
+        style: 'Traditional',
+        category: 'Tatuaggio Eseguito',
+        location: 'Roma Tattoo Shop',
+        likes: 98,
+        likedByMe: false,
+        comments: [
+          { author: '@elena_dark_tattoo', text: 'Old school fatto a regola d\'arte!' }
+        ],
+        timestamp: '5 ore fa'
+      },
+      {
+        id: 'post-3',
+        authorHandle: 'sophie_ink_apprentice',
+        authorName: 'Sophie Laurent',
+        authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=250&q=80',
+        authorRole: 'Apprentice',
+        imageUrl: 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=800&q=80',
+        caption: 'Set di Bozzetti Flash disponibili per questa settimana! Dimensione 10x10 cm. Scrivetemi per prenotarli.',
+        style: 'Geometric',
+        category: 'Bozzetto / Flash',
+        location: 'Torino Design Lab',
+        likes: 45,
+        likedByMe: false,
+        comments: [],
+        timestamp: '1 giorno fa'
+      }
+    ];
+
+    let currentUser = JSON.parse(localStorage.getItem('tg_user')) || {
+      handle: 'Ospite_' + Math.floor(Math.random() * 899 + 100),
+      displayName: 'Ospite Tattoo Fan',
+      role: 'Collector',
+      isGuest: true,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
+      banner: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+      bio: 'Fan ed appassionato di tatuaggi.',
+      city: 'Italia',
+      styles: 'Tutti gli stili',
+      agendaOpen: false,
+      whatsapp: ''
+    };
+
+    let postsData = JSON.parse(localStorage.getItem('tg_posts')) || MOCK_POSTS;
+    let profilesData = JSON.parse(localStorage.getItem('tg_profiles')) || MOCK_PROFILES;
+    let savedPostIds = JSON.parse(localStorage.getItem('tg_saved')) || [];
+    let currentSearchCategory = 'all';
+    let currentActiveTab = 'feed';
+    let activeLightboxPostId = null;
+    let tempSelectedImageBase64 = null;
+
+    // Save helpers
+    function saveState() {
+      localStorage.setItem('tg_user', JSON.stringify(currentUser));
+      localStorage.setItem('tg_posts', JSON.stringify(postsData));
+      localStorage.setItem('tg_profiles', JSON.stringify(profilesData));
+      localStorage.setItem('tg_saved', JSON.stringify(savedPostIds));
+    }
+
+    window.onload = function() {
+      initSupabase();
+      updateUserNoticeBanner();
+      renderStories();
+      renderFeedPosts(postsData);
+      renderProfilesSearch(profilesData);
+      renderSavedPosts();
+      renderUserProfile();
+
+      if (supabaseClient) {
+        loadDataFromSupabase();
+      }
+    };
+
+    async function loadDataFromSupabase() {
+      if (!supabaseClient) return;
+      try {
+        const { data: cloudPosts, error: pErr } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false });
+        if (!pErr && cloudPosts && cloudPosts.length > 0) {
+          postsData = cloudPosts.map(p => ({
+            id: p.id,
+            authorHandle: p.author_handle,
+            authorName: p.author_name,
+            authorAvatar: p.author_avatar,
+            authorRole: p.author_role,
+            imageUrl: p.image_url,
+            caption: p.caption,
+            style: p.style,
+            category: p.category,
+            location: p.location,
+            likes: p.likes || 0,
+            likedByMe: false,
+            comments: p.comments || [],
+            timestamp: p.timestamp
+          }));
+          renderFeedPosts(postsData);
+        }
+
+        const { data: cloudProfiles, error: prErr } = await supabaseClient.from('profiles').select('*');
+        if (!prErr && cloudProfiles && cloudProfiles.length > 0) {
+          profilesData = cloudProfiles.map(pr => ({
+            handle: pr.handle,
+            displayName: pr.display_name,
+            role: pr.role,
+            avatar: pr.avatar,
+            banner: pr.banner,
+            bio: pr.bio,
+            city: pr.city,
+            styles: pr.styles,
+            agendaOpen: pr.agenda_open,
+            whatsapp: pr.whatsapp
+          }));
+          renderStories();
+          renderProfilesSearch();
+        }
+      } catch (err) {
+        console.warn("Impossibile sincronizzare da Supabase:", err);
+      }
+    }
+
+    async function saveState() {
+      localStorage.setItem('tg_user', JSON.stringify(currentUser));
+      localStorage.setItem('tg_posts', JSON.stringify(postsData));
+      localStorage.setItem('tg_profiles', JSON.stringify(profilesData));
+      localStorage.setItem('tg_saved', JSON.stringify(savedPostIds));
+
+      if (supabaseClient && !currentUser.isGuest) {
+        try {
+          await supabaseClient.from('profiles').upsert([{
+            handle: currentUser.handle,
+            display_name: currentUser.displayName,
+            role: currentUser.role,
+            avatar: currentUser.avatar,
+            banner: currentUser.banner,
+            bio: currentUser.bio,
+            city: currentUser.city,
+            styles: currentUser.styles,
+            agenda_open: currentUser.agendaOpen,
+            whatsapp: currentUser.whatsapp
+          }]);
+        } catch (e) {
+          console.error("Errore salvataggio profilo su Supabase", e);
+        }
+      }
+    }
+
+    async function handleCreatePost(e) {
+      e.preventDefault();
+      const urlInput = document.getElementById('postImageUrl').value.trim();
+      const finalImage = tempSelectedImageBase64 || urlInput || 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=800&q=80';
+
+      const newPost = {
+        id: 'post-' + Date.now(),
+        authorHandle: currentUser.handle,
+        authorName: currentUser.displayName,
+        authorAvatar: currentUser.avatar,
+        authorRole: currentUser.role,
+        imageUrl: finalImage,
+        caption: document.getElementById('postCaption').value.trim(),
+        style: document.getElementById('postStyle').value,
+        category: document.getElementById('postCategory').value,
+        location: document.getElementById('postLocation').value.trim() || currentUser.city,
+        likes: 0,
+        likedByMe: false,
+        comments: [],
+        timestamp: 'Proprio ora'
+      };
+
+      postsData.unshift(newPost);
+      saveState();
+
+      if (supabaseClient) {
+        try {
+          await supabaseClient.from('posts').insert([{
+            id: newPost.id,
+            author_handle: newPost.authorHandle,
+            author_name: newPost.authorName,
+            author_avatar: newPost.authorAvatar,
+            author_role: newPost.authorRole,
+            image_url: newPost.imageUrl,
+            caption: newPost.caption,
+            style: newPost.style,
+            category: newPost.category,
+            location: newPost.location,
+            likes: newPost.likes,
+            comments: newPost.comments,
+            timestamp: newPost.timestamp
+          }]);
+        } catch (err) {
+          console.error("Errore invio post a Supabase:", err);
+        }
+      }
+
+      tempSelectedImageBase64 = null;
+      document.getElementById('newPostForm').reset();
+      closeNewPostModal();
+      renderFeedPosts(postsData);
+    }
+
+    function openCloudConfigModal() {
+      const cfg = JSON.parse(localStorage.getItem('tg_supabase_cfg') || '{}');
+      document.getElementById('supaUrl').value = cfg.url || DEFAULT_SUPABASE_URL;
+      document.getElementById('supaAnonKey').value = cfg.anonKey || '';
+      document.getElementById('cloudConfigModal').classList.remove('hidden');
+    }
+
+    function closeCloudConfigModal() {
+      document.getElementById('cloudConfigModal').classList.add('hidden');
+    }
+
+    function handleSaveCloudConfig(e) {
+      e.preventDefault();
+      const cfg = {
+        url: document.getElementById('supaUrl').value.trim() || DEFAULT_SUPABASE_URL,
+        anonKey: document.getElementById('supaAnonKey').value.trim()
+      };
+      localStorage.setItem('tg_supabase_cfg', JSON.stringify(cfg));
+      closeCloudConfigModal();
+      initSupabase();
+      loadDataFromSupabase();
+    }
+
+    function clearCloudConfig() {
+      localStorage.removeItem('tg_supabase_cfg');
+      supabaseClient = null;
+      closeCloudConfigModal();
+      document.getElementById('syncStatusIcon').className = "fa-solid fa-cloud text-rose-400";
+      document.getElementById('syncStatusText').innerText = "Supabase Cloud";
+    }
+
+    function updateUserNoticeBanner() {
+      const banner = document.getElementById('guestNoticeBanner');
+      const guestName = document.getElementById('guestNoticeUsername');
+      const postAuthorDisp = document.getElementById('postAuthorDisplay');
+
+      if (guestName) guestName.innerText = '@' + currentUser.handle;
+      if (postAuthorDisp) postAuthorDisp.innerText = '@' + currentUser.handle;
+
+      if (banner) {
+        if (currentUser.isGuest) {
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+    }
+
+    function switchTab(tabId) {
+      currentActiveTab = tabId;
+      ['feed', 'search', 'saved', 'profile'].forEach(tab => {
+        const el = document.getElementById(`tab-${tab}`);
+        const navEl = document.getElementById(`nav-${tab}`);
+        if(tab === tabId) {
+          el.classList.remove('hidden');
+          navEl.classList.add('text-rose-500');
+          navEl.classList.remove('text-zinc-400');
+        } else {
+          el.classList.add('hidden');
+          navEl.classList.remove('text-rose-500');
+          navEl.classList.add('text-zinc-400');
+        }
+      });
+
+      if(tabId === 'search') renderProfilesSearch();
+      if(tabId === 'saved') renderSavedPosts();
+      if(tabId === 'profile') renderUserProfile();
+    }
+
+    function renderStories() {
+      const container = document.getElementById('storiesContainer');
+      container.innerHTML = '';
+
+      profilesData.forEach(p => {
+        const isPro = p.role === 'Pro Tattoo Artist';
+        const item = document.createElement('div');
+        item.className = 'flex flex-col items-center gap-1 min-w-[70px] cursor-pointer group';
+        item.onclick = () => openProfileByHandle(p.handle);
+        item.innerHTML = `
+          <div class="relative p-0.5 rounded-full ${isPro ? 'bg-gradient-to-tr from-rose-600 via-rose-400 to-amber-400' : 'bg-zinc-700'} group-hover:scale-105 transition-transform">
+            <img src="${p.avatar}" class="w-14 h-14 rounded-full object-cover border-2 border-zinc-900" alt="${p.handle}">
+            ${isPro ? '<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-rose-600 border-2 border-zinc-900 rounded-full"></span>' : ''}
+          </div>
+          <span class="text-[10px] font-medium text-zinc-300 truncate w-16 text-center">@${p.handle}</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function renderFeedPosts(postsToRender) {
+      const container = document.getElementById('feedPostsContainer');
+      container.innerHTML = '';
+
+      if(postsToRender.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-zinc-500 bg-zinc-900/40 rounded-2xl border border-zinc-800">
+            <i class="fa-solid fa-camera-retro text-3xl mb-2 text-zinc-600"></i>
+            <p class="text-sm">Nessun tatuaggio trovato in questa categoria.</p>
+          </div>
+        `;
+        return;
+      }
+
+      postsToRender.forEach(post => {
+        const isSaved = savedPostIds.includes(post.id);
+        const card = document.createElement('article');
+        card.className = 'bg-zinc-900 border border-zinc-800/90 rounded-2xl overflow-hidden shadow-xl transition';
+        card.innerHTML = `
+          <!-- Author Header -->
+          <div class="p-3.5 flex items-center justify-between border-b border-zinc-800/50">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="openProfileByHandle('${post.authorHandle}')">
+              <img src="${post.authorAvatar}" class="w-10 h-10 rounded-full object-cover border border-rose-500/30" alt="${post.authorHandle}">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-zinc-100 hover:text-rose-400 transition">@${post.authorHandle}</span>
+                  ${post.authorRole === 'Pro Tattoo Artist' ? '<span class="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-1.5 py-0.2 rounded border border-rose-500/30">PRO</span>' : ''}
+                </div>
+                <div class="text-[11px] text-zinc-400">${post.location || 'Studio Tattoo'} • <span class="text-rose-400 font-medium">${post.style}</span></div>
+              </div>
+            </div>
+            <span class="text-[10px] text-zinc-500">${post.timestamp || 'Recente'}</span>
+          </div>
+
+          <!-- Tattoo Main Image with Double Tap Like -->
+          <div class="relative bg-black cursor-pointer group overflow-hidden" ondblclick="triggerDoubleTapLike('${post.id}')">
+            <img src="${post.imageUrl}" class="w-full max-h-[500px] object-cover mx-auto" alt="Tattoo">
+            <div id="heart-anim-${post.id}" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-rose-500 text-7xl opacity-0 pointer-events-none">
+              <i class="fa-solid fa-heart"></i>
+            </div>
+            <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] text-zinc-300 font-medium border border-white/10">
+              ${post.category}
+            </div>
+          </div>
+
+          <!-- Actions Bar -->
+          <div class="p-3.5 space-y-2">
+            <div class="flex items-center justify-between text-lg">
+              <div class="flex items-center gap-4">
+                <button onclick="toggleLike('${post.id}')" class="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-rose-500 transition">
+                  <i class="${post.likedByMe ? 'fa-solid text-rose-500' : 'fa-regular'} fa-heart text-lg"></i>
+                  <span>${post.likes}</span>
+                </button>
+
+                <button onclick="openLightbox('${post.id}')" class="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-rose-400 transition">
+                  <i class="fa-regular fa-comment text-lg"></i>
+                  <span>${post.comments.length}</span>
+                </button>
+              </div>
+
+              <button onclick="toggleSavePost('${post.id}')" class="text-zinc-400 hover:text-rose-400 transition">
+                <i class="${isSaved ? 'fa-solid text-rose-500' : 'fa-regular'} fa-bookmark text-lg"></i>
+              </button>
+            </div>
+
+            <!-- Didascalia -->
+            <p class="text-xs text-zinc-300 leading-relaxed">
+              <strong class="text-zinc-100 cursor-pointer hover:underline" onclick="openProfileByHandle('${post.authorHandle}')">@${post.authorHandle}</strong> ${post.caption}
+            </p>
+
+            <!-- Latest Comment Preview -->
+            ${post.comments.length > 0 ? `
+              <div class="text-[11px] text-zinc-400 cursor-pointer pt-1" onclick="openLightbox('${post.id}')">
+                <span class="font-semibold text-zinc-300">${post.comments[post.comments.length-1].author}:</span> ${post.comments[post.comments.length-1].text}
+              </div>
+            ` : ''}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function triggerDoubleTapLike(postId) {
+      const heartAnim = document.getElementById(`heart-anim-${postId}`);
+      if(heartAnim) {
+        heartAnim.classList.remove('like-heart-anim');
+        void heartAnim.offsetWidth; // trigger reflow
+        heartAnim.classList.add('like-heart-anim');
+      }
+      const post = postsData.find(p => p.id === postId);
+      if(post && !post.likedByMe) {
+        post.likedByMe = true;
+        post.likes += 1;
+        saveState();
+        renderFeedPosts(postsData);
+      }
+    }
+
+    function toggleLike(postId) {
+      const post = postsData.find(p => p.id === postId);
+      if(post) {
+        post.likedByMe = !post.likedByMe;
+        post.likes += post.likedByMe ? 1 : -1;
+        saveState();
+        renderFeedPosts(postsData);
+      }
+    }
+
+    function toggleSavePost(postId) {
+      if(savedPostIds.includes(postId)) {
+        savedPostIds = savedPostIds.filter(id => id !== postId);
+      } else {
+        savedPostIds.push(postId);
+      }
+      saveState();
+      renderFeedPosts(postsData);
+    }
+
+    function filterFeed(category) {
+      document.querySelectorAll('.feed-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-rose-600', 'text-white');
+        btn.classList.add('bg-zinc-800', 'text-zinc-300');
+      });
+      event.target.classList.remove('bg-zinc-800', 'text-zinc-300');
+      event.target.classList.add('bg-rose-600', 'text-white');
+
+      if(category === 'all') {
+        renderFeedPosts(postsData);
+      } else if(category === 'Pro Tattoo Artist' || category === 'Apprentice') {
+        const filtered = postsData.filter(p => p.authorRole === category);
+        renderFeedPosts(filtered);
+      } else {
+        const filtered = postsData.filter(p => p.category === category);
+        renderFeedPosts(filtered);
+      }
+    }
+
+    function handleSearch() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if(query.length > 0) clearBtn.classList.remove('hidden');
+      else clearBtn.classList.add('hidden');
+
+      renderProfilesSearch();
+    }
+
+    function handleHeaderSearch() {
+      const val = document.getElementById('headerSearchInput').value;
+      if (currentActiveTab !== 'search') {
+        switchTab('search');
+      }
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.value = val;
+        handleSearch();
+      }
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      const headerInput = document.getElementById('headerSearchInput');
+      if (headerInput) headerInput.value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      renderProfilesSearch();
+    }
+
+    function setSearchFilter(cat) {
+      currentSearchCategory = cat;
+      document.querySelectorAll('.search-category-btn').forEach(btn => {
+        btn.classList.remove('bg-rose-600', 'text-white');
+        btn.classList.add('bg-zinc-800', 'text-zinc-300');
+      });
+      event.target.classList.remove('bg-zinc-800', 'text-zinc-300');
+      event.target.classList.add('bg-rose-600', 'text-white');
+      renderProfilesSearch();
+    }
+
+    function renderProfilesSearch() {
+      const query = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim().toLowerCase();
+      const container = document.getElementById('searchResultsContainer');
+      container.innerHTML = '';
+
+      let filtered = profilesData.filter(p => {
+        const matchCategory = currentSearchCategory === 'all' || p.role === currentSearchCategory;
+        const matchQuery = p.handle.toLowerCase().includes(query) ||
+                           p.displayName.toLowerCase().includes(query) ||
+                           p.styles.toLowerCase().includes(query) ||
+                           p.city.toLowerCase().includes(query);
+        return matchCategory && matchQuery;
+      });
+
+      document.getElementById('searchResultsCount').innerText = `Profili Trovati (${filtered.length})`;
+
+      if(filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center text-zinc-500 bg-zinc-900/40 rounded-2xl border border-zinc-800">
+            <i class="fa-solid fa-user-slash text-3xl mb-2 text-zinc-600"></i>
+            <p class="text-sm">Nessun tatuatore o utente corrisponde a "${query}".</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(p => {
+        const userPosts = postsData.filter(post => post.authorHandle === p.handle);
+        const card = document.createElement('div');
+        card.className = 'bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col justify-between hover:border-rose-500/50 transition shadow-md group cursor-pointer';
+        card.onclick = () => openProfileByHandle(p.handle);
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3 mb-3">
+            <img src="${p.avatar}" class="w-14 h-14 rounded-2xl object-cover border border-rose-500/30 group-hover:scale-105 transition-transform" alt="${p.handle}">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h4 class="text-sm font-bold text-white truncate">${p.displayName}</h4>
+                ${p.role === 'Pro Tattoo Artist' ? '<span class="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-1.5 py-0.2 rounded border border-rose-500/30">PRO</span>' : ''}
+              </div>
+              <div class="text-xs font-semibold text-rose-400">@${p.handle}</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5"><i class="fa-solid fa-location-dot text-zinc-500 mr-1"></i>${p.city}</div>
+            </div>
+          </div>
+
+          <p class="text-xs text-zinc-300 line-clamp-2 mb-3 bg-zinc-950/50 p-2 rounded-xl border border-zinc-800/60">${p.bio}</p>
+
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-800 text-xs">
+            <span class="text-zinc-400"><i class="fa-solid fa-images text-rose-500 mr-1"></i> ${userPosts.length} post</span>
+            <span class="text-rose-400 font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Vedi Profilo &rarr;
+            </span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function openProfileByHandle(handle) {
+      let profile = profilesData.find(p => p.handle === handle);
+      if(!profile) {
+        profile = {
+          handle: handle,
+          displayName: handle,
+          role: 'Ospite Tattoo Fan',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
+          banner: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+          bio: 'Profilo Utente Tattoogram.',
+          city: 'Italia',
+          styles: 'Vari',
+          agendaOpen: false
+        };
+      }
+
+      switchTab('profile');
+      renderUserProfile(profile);
+    }
+
+    function renderUserProfile(customProfile = null) {
+      const p = customProfile || currentUser;
+      
+      document.getElementById('profileDisplayName').innerText = p.displayName;
+      document.getElementById('profileHandle').innerText = '@' + p.handle;
+      document.getElementById('profileRoleBadge').innerText = p.role;
+      document.getElementById('profileBio').innerText = p.bio;
+      document.getElementById('profileCity').innerText = p.city;
+      document.getElementById('profileStyles').innerText = p.styles;
+      document.getElementById('profileAvatarImg').src = p.avatar;
+      document.getElementById('profileBannerImg').src = p.banner;
+
+      const agendaBadge = document.getElementById('profileAgendaBadge');
+      if(p.agendaOpen) agendaBadge.classList.remove('hidden');
+      else agendaBadge.classList.add('hidden');
+
+      // Contact button
+      const contactContainer = document.getElementById('profileContactLinkContainer');
+      contactContainer.innerHTML = '';
+      if(p.whatsapp) {
+        contactContainer.innerHTML = `
+          <a href="${p.whatsapp}" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5">
+            <i class="fa-brands fa-whatsapp text-sm"></i> Prenota / WhatsApp
+          </a>
+        `;
+      }
+
+      // Hide or show edit button if it's current user
+      const isMe = p.handle === currentUser.handle;
+      document.getElementById('editProfileBtn').style.display = isMe ? 'inline-flex' : 'none';
+      document.getElementById('convertProfileBtn').style.display = (isMe && currentUser.isGuest) ? 'inline-flex' : 'none';
+
+      // Load user posts
+      const userPosts = postsData.filter(post => post.authorHandle === p.handle);
+      document.getElementById('userPostsCount').innerText = userPosts.length;
+      
+      renderUserPostsGrid(userPosts);
+    }
+
+    function renderUserPostsGrid(posts) {
+      const grid = document.getElementById('userProfilePostsGrid');
+      grid.innerHTML = '';
+
+      if(posts.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full p-8 text-center text-zinc-500 bg-zinc-900/40 rounded-2xl border border-zinc-800">
+            <i class="fa-solid fa-folder-open text-3xl mb-2 text-zinc-600"></i>
+            <p class="text-sm">Nessun tatuaggio pubblicato da questo utente.</p>
+          </div>
+        `;
+        return;
+      }
+
+      posts.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'relative aspect-square rounded-xl overflow-hidden bg-zinc-950 group cursor-pointer border border-zinc-800';
+        item.onclick = () => openLightbox(p.id);
+        item.innerHTML = `
+          <img src="${p.imageUrl}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300" alt="Post">
+          <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3 text-white text-xs font-bold">
+            <span><i class="fa-solid fa-heart text-rose-500"></i> ${p.likes}</span>
+            <span><i class="fa-solid fa-comment text-zinc-300"></i> ${p.comments.length}</span>
+          </div>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    function switchProfileSubTab(subTab) {
+      ['posts', 'flash'].forEach(st => {
+        const btn = document.getElementById(`pSubTab-${st}`);
+        if(st === subTab) {
+          btn.classList.add('border-rose-500', 'text-rose-400');
+          btn.classList.remove('border-transparent', 'text-zinc-400');
+        } else {
+          btn.classList.remove('border-rose-500', 'text-rose-400');
+          btn.classList.add('border-transparent', 'text-zinc-400');
+        }
+      });
+
+      const userPosts = postsData.filter(post => post.authorHandle === currentUser.handle);
+      if(subTab === 'flash') {
+        const flashOnly = userPosts.filter(p => p.category === 'Bozzetto / Flash');
+        renderUserPostsGrid(flashOnly);
+      } else {
+        renderUserPostsGrid(userPosts);
+      }
+    }
+
+    function openLightbox(postId) {
+      const post = postsData.find(p => p.id === postId);
+      if(!post) return;
+
+      activeLightboxPostId = postId;
+      document.getElementById('lightboxImage').src = post.imageUrl;
+      document.getElementById('lightboxAuthorAvatar').src = post.authorAvatar;
+      document.getElementById('lightboxAuthorName').innerText = '@' + post.authorHandle;
+      document.getElementById('lightboxAuthorStyle').innerText = post.style + ' • ' + post.location;
+      document.getElementById('lightboxCaption').innerText = post.caption;
+
+      const commentsContainer = document.getElementById('lightboxComments');
+      commentsContainer.innerHTML = '';
+      post.comments.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/80';
+        div.innerHTML = `<strong class="text-rose-400">${c.author}:</strong> <span class="text-zinc-200">${c.text}</span>`;
+        commentsContainer.appendChild(div);
+      });
+
+      document.getElementById('lightboxModal').classList.remove('hidden');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightboxModal').classList.add('hidden');
+    }
+
+    function handleAddComment(e) {
+      e.preventDefault();
+      const input = document.getElementById('lightboxCommentInput');
+      const text = input.value.trim();
+      if(!text || !activeLightboxPostId) return;
+
+      const post = postsData.find(p => p.id === activeLightboxPostId);
+      if(post) {
+        post.comments.push({
+          author: '@' + currentUser.handle,
+          text: text
+        });
+        saveState();
+        input.value = '';
+        openLightbox(activeLightboxPostId);
+        renderFeedPosts(postsData);
+      }
+    }
+
+    function renderSavedPosts() {
+      const container = document.getElementById('savedPostsContainer');
+      container.innerHTML = '';
+      const savedPosts = postsData.filter(p => savedPostIds.includes(p.id));
+
+      if(savedPosts.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center text-zinc-500 bg-zinc-900/40 rounded-2xl border border-zinc-800">
+            <i class="fa-solid fa-bookmark text-3xl mb-2 text-zinc-600"></i>
+            <p class="text-sm">Nessun tatuaggio salvato nei preferiti.</p>
+          </div>
+        `;
+        return;
+      }
+
+      savedPosts.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'relative aspect-square rounded-xl overflow-hidden bg-zinc-950 group cursor-pointer border border-zinc-800';
+        item.onclick = () => openLightbox(p.id);
+        item.innerHTML = `
+          <img src="${p.imageUrl}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300" alt="Saved">
+          <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 text-white text-xs font-bold">
+            <span>@${p.authorHandle}</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function openNewPostModal() {
+      updateUserNoticeBanner();
+      document.getElementById('newPostModal').classList.remove('hidden');
+    }
+    function closeNewPostModal() {
+      document.getElementById('newPostModal').classList.add('hidden');
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          tempSelectedImageBase64 = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function handleCreatePost(e) {
+      e.preventDefault();
+      const urlInput = document.getElementById('postImageUrl').value.trim();
+      const finalImage = tempSelectedImageBase64 || urlInput || 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=800&q=80';
+
+      const newPost = {
+        id: 'post-' + Date.now(),
+        authorHandle: currentUser.handle,
+        authorName: currentUser.displayName,
+        authorAvatar: currentUser.avatar,
+        authorRole: currentUser.role,
+        imageUrl: finalImage,
+        caption: document.getElementById('postCaption').value.trim(),
+        style: document.getElementById('postStyle').value,
+        category: document.getElementById('postCategory').value,
+        location: document.getElementById('postLocation').value.trim() || currentUser.city,
+        likes: 0,
+        likedByMe: false,
+        comments: [],
+        timestamp: 'Proprio ora'
+      };
+
+      postsData.unshift(newPost);
+      saveState();
+      tempSelectedImageBase64 = null;
+      document.getElementById('newPostForm').reset();
+      closeNewPostModal();
+      renderFeedPosts(postsData);
+    }
+
+    function openClaimProfileModal() {
+      document.getElementById('claimHandle').value = currentUser.isGuest ? '' : currentUser.handle;
+      document.getElementById('claimDisplayName').value = currentUser.isGuest ? '' : currentUser.displayName;
+      document.getElementById('claimProfileModal').classList.remove('hidden');
+    }
+    function closeClaimProfileModal() {
+      document.getElementById('claimProfileModal').classList.add('hidden');
+    }
+
+    function handleClaimProfile(e) {
+      e.preventDefault();
+      const oldHandle = currentUser.handle;
+      const newHandle = document.getElementById('claimHandle').value.trim().replace('@', '');
+      const newName = document.getElementById('claimDisplayName').value.trim();
+      const newRole = document.getElementById('claimRole').value;
+
+      currentUser.handle = newHandle;
+      currentUser.displayName = newName;
+      currentUser.role = newRole;
+      currentUser.isGuest = false;
+
+      // Update previous posts authored by old guest handle
+      postsData.forEach(p => {
+        if(p.authorHandle === oldHandle) {
+          p.authorHandle = newHandle;
+          p.authorName = newName;
+          p.authorRole = newRole;
+        }
+      });
+
+      // Add to profiles if not present
+      let existingProf = profilesData.find(p => p.handle === newHandle);
+      if(!existingProf) {
+        profilesData.push({
+          handle: newHandle,
+          displayName: newName,
+          role: newRole,
+          avatar: currentUser.avatar,
+          banner: currentUser.banner,
+          bio: currentUser.bio,
+          city: currentUser.city,
+          styles: currentUser.styles,
+          agendaOpen: currentUser.agendaOpen,
+          whatsapp: currentUser.whatsapp
+        });
+      } else {
+        existingProf.displayName = newName;
+        existingProf.role = newRole;
+      }
+
+      saveState();
+      closeClaimProfileModal();
+      updateUserNoticeBanner();
+      renderStories();
+      renderFeedPosts(postsData);
+      renderUserProfile();
+    }
+
+    function openEditProfileModal() {
+      document.getElementById('editName').value = currentUser.displayName;
+      document.getElementById('editBio').value = currentUser.bio;
+      document.getElementById('editAvatar').value = currentUser.avatar;
+      document.getElementById('editBanner').value = currentUser.banner;
+      document.getElementById('editCity').value = currentUser.city;
+      document.getElementById('editStyles').value = currentUser.styles;
+      document.getElementById('editAgendaOpen').checked = currentUser.agendaOpen;
+      document.getElementById('editContactLink').value = currentUser.whatsapp || '';
+
+      document.getElementById('editProfileModal').classList.remove('hidden');
+    }
+
+    function closeEditProfileModal() {
+      document.getElementById('editProfileModal').classList.add('hidden');
+    }
+
+    function handleSaveProfileEdit(e) {
+      e.preventDefault();
+      currentUser.displayName = document.getElementById('editName').value.trim();
+      currentUser.bio = document.getElementById('editBio').value.trim();
+      currentUser.avatar = document.getElementById('editAvatar').value.trim();
+      currentUser.banner = document.getElementById('editBanner').value.trim();
+      currentUser.city = document.getElementById('editCity').value.trim();
+      currentUser.styles = document.getElementById('editStyles').value.trim();
+      currentUser.agendaOpen = document.getElementById('editAgendaOpen').checked;
+      currentUser.whatsapp = document.getElementById('editContactLink').value.trim();
+
+      let prof = profilesData.find(p => p.handle === currentUser.handle);
+      if(prof) {
+        Object.assign(prof, currentUser);
+      }
+
+      saveState();
+      closeEditProfileModal();
+      renderUserProfile();
+      renderStories();
+    }
+  </script>
+</body>
+</html>
